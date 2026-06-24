@@ -28,8 +28,13 @@ export class ProcessEngine {
 
   /** 从工艺模板生成工序流 DAG */
   async generateFlow(input: CreateProcessInput): Promise<Result<ProcessFlow, DomainError>> {
-    // 1. 从模板展开原子工序
-    let types = [...(PROCESS_TEMPLATE_MAP[input.template] ?? [])];
+    // 1. 从模板展开原子工序（优先数据库，常量后备）
+    let types: ProcessType[] = [];
+    try {
+      const row = (this.processRepo as any).db?.prepare?.('SELECT steps FROM process_templates WHERE name = ?')?.get(input.template) as any;
+      if (row) types = JSON.parse(row.steps);
+    } catch {}
+    if (!types.length) types = [...(PROCESS_TEMPLATE_MAP[input.template] ?? [])];
 
     // 2. 处理增删
     if (input.removeSteps) {

@@ -19,6 +19,7 @@ import { ProcessEngine } from '../../engines/process-engine';
 import { MaterialEngine } from '../../engines/material-engine';
 import { ScheduleEngine } from '../../engines/schedule-engine';
 import { TraceEngine } from '../../engines/trace-engine';
+import { eventBus } from '../../shared/events';
 
 // 应用服务
 import { OrderService } from '../../application/order';
@@ -66,6 +67,16 @@ export async function buildServices(): Promise<Services> {
   const materialEngine = new MaterialEngine(materialRepo, inventoryRepo);
   const scheduleEngine = new ScheduleEngine(taskRepo, processRepo);
   const traceEngine = new TraceEngine(traceRepo);
+
+  // TraceEngine 订阅领域事件（解耦：业务代码只 emit，不直接调 trace）
+  const sub = (etype: string) => eventBus.on(etype, (e) => { traceEngine.logEvent({ ...e, eventType: e.type as any }); });
+  sub('order_created');
+  sub('process_started');
+  sub('process_completed');
+  sub('task_completed');
+  sub('rework_triggered');
+  sub('supplement_needed');
+  sub('anomaly_detected');
 
   // --- 服务 ---
   const orderService = new OrderService(orderRepo, processEngine, materialEngine, traceEngine);
