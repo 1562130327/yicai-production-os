@@ -10,6 +10,9 @@ import { SqliteMaterialRepository } from '../../infrastructure/database/reposito
 import { SqliteInventoryRepository } from '../../infrastructure/database/repositories/inventory.repo';
 import { SqliteTaskRepository } from '../../infrastructure/database/repositories/task.repo';
 import { SqliteTraceRepository } from '../../infrastructure/database/repositories/trace.repo';
+import { SqliteMachineRepository } from '../../infrastructure/database/repositories/machine.repo';
+import { SqliteWorkerRepository } from '../../infrastructure/database/repositories/worker.repo';
+import { SqliteCustomerRepository } from '../../infrastructure/database/repositories/customer.repo';
 
 // 引擎
 import { ProcessEngine } from '../../engines/process-engine';
@@ -35,6 +38,9 @@ export interface Services {
   scheduleEngine: ScheduleEngine;
   inventoryRepo: any;
   materialRepo: any;
+  machineRepo: any;
+  workerRepo: any;
+  customerRepo: any;
 }
 
 let cachedServices: Services | null = null;
@@ -51,6 +57,9 @@ export async function buildServices(): Promise<Services> {
   const inventoryRepo = new SqliteInventoryRepository(db);
   const taskRepo = new SqliteTaskRepository(db);
   const traceRepo = new SqliteTraceRepository(db);
+  const machineRepo = new SqliteMachineRepository(db);
+  const workerRepo = new SqliteWorkerRepository(db);
+  const customerRepo = new SqliteCustomerRepository(db);
 
   // --- 引擎 ---
   const processEngine = new ProcessEngine(processRepo);
@@ -76,6 +85,9 @@ export async function buildServices(): Promise<Services> {
     scheduleEngine,
     inventoryRepo,
     materialRepo,
+    machineRepo,
+    workerRepo,
+    customerRepo,
   };
 
   return cachedServices;

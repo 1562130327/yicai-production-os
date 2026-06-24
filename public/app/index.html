@@ -172,6 +172,8 @@ tr:hover{background:var(--accent-dim)}
     <a data-panel="newOrder" onclick="showPanel('newOrder')" class="admin-only">录 单</a>
     <a data-panel="inventory" onclick="showPanel('inventory')">库 存</a>
     <a data-panel="inbound" onclick="showPanel('inbound')" class="admin-only">入 库</a>
+    <a data-panel="machines" onclick="showPanel('machines')">机 器</a>
+    <a data-panel="workers" onclick="showPanel('workers')">工 人</a>
     <a data-panel="reports" onclick="showPanel('reports')">报 表</a>
   </nav>
   <div class="user">
@@ -250,6 +252,17 @@ tr:hover{background:var(--accent-dim)}
   </div></div>
 </section>
 
+<!-- ====== MACHINES ====== -->
+<section class="panel" id="panel-machines">
+  <div class="stat-row" id="machStats"></div>
+  <div id="machGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px"></div>
+</section>
+
+<!-- ====== WORKERS ====== -->
+<section class="panel" id="panel-workers">
+  <div id="workerGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px"></div>
+</section>
+
 <!-- ====== REPORTS ====== -->
 <section class="panel" id="panel-reports">
   <div class="fbar">
@@ -292,6 +305,8 @@ function showPanel(n){
   if(n==='orders')loadOrders();
   if(n==='newOrder'){initTpl();loadMatOpts()}
   if(n==='inventory')loadInv();
+  if(n==='machines')loadMachines();
+  if(n==='workers')loadWorkers();
   if(n==='reports')loadReport('daily');
 }
 
@@ -504,6 +519,42 @@ function closeFb(){document.getElementById('fbModal').classList.add('hidden')}
 async function submitFb(){
   const r=await fetch(API+'/feedback',{method:'POST',headers:H(),body:JSON.stringify({orderId:document.getElementById('fboId').value,processStepId:document.getElementById('fbsId').value,flowId:document.getElementById('fbfId').value,type:document.getElementById('fbType').value,description:document.getElementById('fbDesc').value,severity:'medium'})});
   alert((await r.json()).data?.message||'已提交');closeFb();
+}
+
+// ====== MACHINES ======
+async function loadMachines(){
+  try{
+    const r=await fetch(API+'/machines',{headers:H()});const d=await r.json();const ms=d.data||[];
+    document.getElementById('machStats').innerHTML=`
+      <div class="stat"><div class="val">${ms.length}</div><div class="lbl">总机器</div></div>
+      <div class="stat"><div class="val" style="color:var(--success)">${ms.filter(m=>m.status==='idle').length}</div><div class="lbl">空闲</div></div>
+      <div class="stat"><div class="val" style="color:var(--accent)">${ms.filter(m=>m.status==='running').length}</div><div class="lbl">运行中</div></div>
+      <div class="stat bad"><div class="val">${ms.filter(m=>m.status==='maintenance').length}</div><div class="lbl">维护中</div></div>
+    `;
+    document.getElementById('machGrid').innerHTML=ms.map(m=>`
+      <div class="card" style="border-left:3px solid ${m.status==='idle'?'var(--success)':m.status==='running'?'var(--accent)':'var(--danger)'}">
+        <div class="card-hd">${m.name}<span style="font-family:var(--mono);font-size:10px;color:${m.status==='idle'?'var(--success)':m.status==='running'?'var(--accent)':'var(--danger)'}">${m.status==='idle'?'空闲':m.status==='running'?'运行中':'维护'}</span></div>
+        <div class="card-bd" style="font-size:11px;color:var(--dim)">类型: ${m.type} | 车间: ${m.workshop||'-'}<br>可执行: ${(m.processTypes||[]).join('、')||'辅助'}</div>
+      </div>
+    `).join('');
+  }catch(e){}
+}
+
+// ====== WORKERS ======
+async function loadWorkers(){
+  try{
+    const r=await fetch(API+'/workers-admin',{headers:H()});const d=await r.json();const ws=d.data||[];
+    document.getElementById('workerGrid').innerHTML=ws.map(w=>`
+      <div class="card">
+        <div class="card-hd">${w.name}<span style="font-size:10px;color:var(--dim)">${w.role}</span></div>
+        <div class="card-bd" style="font-size:11px;color:var(--dim)">
+          技能: ${(w.skills||[]).join('、')||'-'}<br>
+          状态: <span style="color:${w.status==='active'?'var(--success)':'var(--dim)'}">${w.status==='active'?'在岗':'休息'}</span>
+          ${w.phone?' | 电话: '+w.phone:''}
+        </div>
+      </div>
+    `).join('');
+  }catch(e){}
 }
 
 // ====== INIT ======
