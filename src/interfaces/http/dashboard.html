@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>溢彩 Production OS — 车间看板</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0f1923;color:#e0e0e0;min-height:100vh}
+.header{background:#1a2732;padding:16px 24px;border-bottom:2px solid #2a3f52;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:20px;color:#4fc3f7}
+.header .info{font-size:14px;color:#78909c}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;padding:24px}
+.card{background:#1a2732;border-radius:8px;padding:20px;border:1px solid #2a3f52}
+.card h3{font-size:15px;color:#4fc3f7;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #253545}
+.stat{display:flex;justify-content:space-between;padding:6px 0;font-size:14px}
+.stat .val{font-weight:bold;color:#ffcc00}
+.alert-item{background:#3e2723;border-left:3px solid #ff6d00;padding:8px 12px;margin:6px 0;font-size:13px;border-radius:0 4px 4px 0}
+.order-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #253545;font-size:13px}
+.order-row:last-child{border-bottom:none}
+.badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold}
+.badge-urgent{background:#c62828;color:#fff}
+.badge-normal{background:#2e7d32;color:#fff}
+.badge-deadline{background:#b71c1c;color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.step-bar{display:flex;gap:4px;margin-top:4px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#455a64}
+.step-dot.done{background:#4caf50}
+.step-dot.running{background:#ff9800}
+.step-dot.waiting{background:#37474f}
+.error{color:#ef5350;text-align:center;padding:20px}
+.loading{text-align:center;padding:40px;color:#78909c}
+.worker-list{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.worker-item{font-size:12px;padding:4px 8px;background:#253545;border-radius:4px;display:flex;justify-content:space-between}
+.worker-item .machine{color:#78909c}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏭 溢彩 Production OS</h1>
+  <div class="info" id="clock"></div>
+</div>
+<div class="grid" id="dashboard">
+  <div class="loading">加载中...</div>
+</div>
+<script>
+const API = '/api';
+const TOKEN = localStorage.getItem('token');
+
+async function fetchData() {
+  if (!TOKEN) {
+    document.getElementById('dashboard').innerHTML = `
+      <div class="card"><h3>登录</h3>
+        <input id="uname" placeholder="用户名" style="display:block;width:100%;padding:8px;margin:8px 0;background:#253545;border:1px solid #2a3f52;color:#e0e0e0;border-radius:4px">
+        <input id="pwd" type="password" placeholder="密码" style="display:block;width:100%;padding:8px;margin:8px 0;background:#253545;border:1px solid #2a3f52;color:#e0e0e0;border-radius:4px">
+        <button onclick="doLogin()" style="width:100%;padding:10px;background:#4fc3f7;border:none;color:#0f1923;border-radius:4px;font-weight:bold;cursor:pointer">登录</button>
+        <p id="loginMsg" style="color:#ef5350;margin-top:8px;font-size:13px"></p>
+      </div>`;
+    return;
+  }
+
+  try {
+    const headers = {'Authorization':'Bearer '+TOKEN};
+    const [ordersRes,matRes] = await Promise.all([
+      fetch(API+'/orders',{headers}),
+      fetch(API+'/materials/岳东 — 白38°B料/available',{headers})
+    ]);
+    const orders = (await ordersRes.json()).data || [];
+    const matData = await matRes.json();
+
+    const urgent = orders.filter(o=>o.priority==='urgent'||o.priority==='deadline');
+    const active = orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled');
+
+    document.getElementById('dashboard').innerHTML = `
+      <div class="card">
+        <h3>📊 总览</h3>
+        <div class="stat"><span>活跃订单</span><span class="val">${active.length}</span></div>
+        <div class="stat"><span>急单/死命令</span><span class="val" style="color:#ef5350">${urgent.length}</span></div>
+        <div class="stat"><span>可用库存</span><span class="val">${matData.data?.available||'?'} 床</span></div>
+      </div>
+      <div class="card">
+        <h3>👥 人员状态</h3>
+        <div class="worker-list">
+          <div class="worker-item"><span>郑思远</span><span class="machine">横竖分切机</span></div>
+          <div class="worker-item"><span>伍乾进</span><span class="machine">破片机</span></div>
+          <div class="worker-item"><span>莫齐国</span><span class="machine">直切机</span></div>
+          <div class="worker-item"><span>李乐</span><span class="machine">4台冲床</span></div>
+          <div class="worker-item"><span>简翠花</span><span class="machine">背胶/点胶</span></div>
+          <div class="worker-item"><span>杨合进</span><span class="machine">打包</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🔴 急单</h3>
+        ${urgent.slice(0,8).map(o=>`
+          <div class="order-row">
+            <span>${o.code} ${o.customerName}</span>
+            <span class="badge ${o.priority==='deadline'?'badge-deadline':'badge-urgent'}">${o.priority==='deadline'?'死命令':'催产'}</span>
+          </div>
+        `).join('')||'<div style="color:#78909c;font-size:13px">暂无急单</div>'}
+      </div>
+      <div class="card">
+        <h3>📋 最近订单</h3>
+        ${active.slice(0,10).map(o=>`
+          <div class="order-row">
+            <div>
+              <div>${o.code} ${o.customerName}</div>
+              <div style="font-size:11px;color:#78909c">${o.processTemplate}</div>
+            </div>
+            <span class="badge ${o.status==='completed'?'badge-normal':'badge-urgent'}">${o.status==='in_progress'?'生产中':o.status==='pending'?'待排':'完成'}</span>
+          </div>
+        `).join('')}
+      </div>`;
+  } catch(e) {
+    document.getElementById('dashboard').innerHTML = `<div class="error">加载失败: ${e.message}</div>`;
+  }
+}
+
+async function doLogin() {
+  const uname = document.getElementById('uname').value;
+  const pwd = document.getElementById('pwd').value;
+  const res = await fetch(API+'/auth/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:uname,password:pwd})
+  });
+  const data = await res.json();
+  if (data.success) {
+    localStorage.setItem('token', data.data.token);
+    location.reload();
+  } else {
+    document.getElementById('loginMsg').textContent = data.error;
+  }
+}
+
+setInterval(()=>{
+  document.getElementById('clock').textContent = new Date().toLocaleString('zh-CN');
+},1000);
+
+fetchData();
+setInterval(fetchData, 30000);
+</script>
+</body>
+</html>

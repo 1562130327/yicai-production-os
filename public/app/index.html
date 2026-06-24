@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>溢彩 Production OS</title>
+<style>
+/* ====== TOKENS ====== */
+:root {
+  --bg: #080d12;
+  --surface: #0f1620;
+  --surface2: #141e2a;
+  --input: #0a1018;
+  --border: #1a2a3a;
+  --border-lite: #243447;
+  --text: #c8d6e5;
+  --dim: #4a6680;
+  --accent: #4fc3f7;
+  --accent-dim: rgba(79,195,247,0.08);
+  --danger: #ef5350;
+  --danger-dim: rgba(239,83,80,0.1);
+  --warning: #ff8f00;
+  --warning-dim: rgba(255,143,0,0.1);
+  --success: #4caf50;
+  --success-dim: rgba(76,175,80,0.1);
+  --font: 'Microsoft YaHei','PingFang SC',sans-serif;
+  --mono: 'Consolas','Courier New',monospace;
+  --radius: 2px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+a{color:var(--accent)}
+
+/* ====== TOPBAR ====== */
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;height:48px;
+  position:sticky;top:0;z-index:100;
+}
+.topbar .logo{font-family:var(--mono);font-size:18px;color:var(--accent);letter-spacing:6px;margin-right:24px}
+.topbar nav{display:flex;gap:2px;flex:1}
+.topbar nav a{
+  color:var(--dim);text-decoration:none;padding:13px 14px;font-size:12px;
+  letter-spacing:1px;border-bottom:2px solid transparent;cursor:pointer;transition:color .15s;
+}
+.topbar nav a:hover,.topbar nav a.active{color:var(--text)}
+.topbar nav a.active{border-bottom-color:var(--accent)}
+.topbar .user{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:10px}
+.topbar .user button{background:none;border:1px solid var(--border);color:var(--dim);padding:3px 10px;border-radius:var(--radius);cursor:pointer;font-size:10px;letter-spacing:1px}
+.topbar .user button:hover{color:var(--danger);border-color:var(--danger)}
+
+/* ====== MAIN ====== */
+.main{max-width:1400px;margin:0 auto;padding:16px}
+.panel{display:none}
+.panel.active{display:block;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ====== CARD ====== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px}
+.card-hd{padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;color:var(--dim);letter-spacing:1px;font-family:var(--mono);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.card-bd{padding:12px}
+
+/* ====== STAT ====== */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
+.stat .val{font-family:var(--mono);font-size:28px;color:var(--accent)}
+.stat .lbl{font-size:10px;color:var(--dim);letter-spacing:1px;margin-top:4px;text-transform:uppercase}
+.stat.warn .val{color:var(--warning)}
+.stat.bad .val{color:var(--danger)}
+
+/* ====== TABLE ====== */
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border)}
+th{text-align:left;padding:8px 12px;font-size:10px;color:var(--dim);letter-spacing:1px;font-family:var(--mono);text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border)}
+tr:hover{background:var(--accent-dim)}
+.badge{padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.badge-dl{background:var(--danger-dim);color:var(--danger)}
+.badge-urg{background:var(--warning-dim);color:var(--warning)}
+.badge-ok{background:var(--success-dim);color:var(--success)}
+.badge-dim{background:var(--accent-dim);color:var(--accent)}
+
+/* ====== PIPELINE ====== */
+.pipeline{display:flex;align-items:center;gap:0;padding:20px 10px;overflow-x:auto}
+.pipe-node{
+  min-width:100px;padding:12px 16px;background:var(--surface2);
+  border:2px solid var(--border);border-radius:var(--radius);text-align:center;
+  position:relative;font-size:11px;transition:border-color .2s;
+}
+.pipe-node .pn-type{font-weight:600;font-size:12px;margin-bottom:4px}
+.pipe-node .pn-worker{font-size:10px;color:var(--dim)}
+.pipe-node .pn-qty{font-family:var(--mono);font-size:14px;color:var(--accent);margin-top:4px}
+.pipe-node.waiting{opacity:.5}
+.pipe-node.ready{border-color:var(--warning)}
+.pipe-node.running{border-color:var(--accent);box-shadow:0 0 12px rgba(79,195,247,.2)}
+.pipe-node.done{border-color:var(--success)}
+.pipe-node.rework{border-color:var(--danger);animation:pulse 1.5s infinite}
+.pipe-arrow{
+  width:32px;height:2px;background:var(--border);position:relative;flex-shrink:0
+}
+.pipe-arrow::after{content:'';position:absolute;right:0;top:-3px;border:4px solid transparent;border-left-color:var(--border)}
+.pipe-arrow.active{background:var(--accent)}
+.pipe-arrow.active::after{border-left-color:var(--accent)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ====== FORM ====== */
+.frm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:700px}
+.frm-field label{display:block;font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;font-family:var(--mono)}
+.frm-field input,.frm-field select{
+  width:100%;padding:7px 10px;background:var(--input);border:1px solid var(--border);
+  color:var(--text);font-size:13px;font-family:var(--font);border-radius:var(--radius);outline:none
+}
+.frm-field input:focus,.frm-field select:focus{border-color:var(--accent)}
+.btn{
+  padding:7px 16px;border:1px solid var(--border);border-radius:var(--radius);
+  cursor:pointer;font-size:12px;letter-spacing:1px;font-family:var(--font);
+  transition:all .15s;color:var(--text);background:var(--surface)
+}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-pri{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+.btn-pri:hover{background:#81d4fa;color:var(--bg)}
+.btn-dan{color:var(--danger)}
+.btn-dan:hover{border-color:var(--danger);background:var(--danger-dim)}
+.btn-sm{padding:3px 8px;font-size:10px}
+.frm-row{display:flex;gap:6px;align-items:center;margin-top:8px}
+.frm-row input{flex:1;padding:6px 8px;background:var(--input);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:var(--font);border-radius:var(--radius);outline:none}
+.frm-row input:focus{border-color:var(--accent)}
+
+/* ====== TASK CARD ====== */
+.task-item{
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px;margin-bottom:6px;display:flex;align-items:center;gap:12px
+}
+.task-item:hover{border-color:var(--accent)}
+.task-item .ti-seq{font-family:var(--mono);font-size:20px;color:var(--dim);width:32px;text-align:center}
+.task-item .ti-info{flex:1}
+.task-item .ti-code{font-family:var(--mono);font-size:12px;color:var(--accent)}
+.task-item .ti-cust{font-size:13px;margin-top:2px}
+.task-item .ti-spec{font-size:11px;color:var(--dim);margin-top:2px}
+.task-item .ti-act{display:flex;gap:4px;align-items:center}
+.task-item input[type=number]{width:60px;padding:5px;background:var(--input);border:1px solid var(--border);color:var(--text);font-size:14px;text-align:center;border-radius:var(--radius);font-family:var(--mono)}
+.task-item.running{border-left:3px solid var(--accent)}
+.task-item.ready{border-left:3px solid var(--warning)}
+
+/* ====== FILTER BAR ====== */
+.fbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.fbar select,.fbar input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 10px;font-size:12px;border-radius:var(--radius);outline:none;font-family:var(--font)}
+.fbar select:focus,.fbar input:focus{border-color:var(--accent)}
+
+/* ====== MODAL ====== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:var(--radius);width:480px;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:15px;color:var(--accent);margin-bottom:14px}
+.modal .btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+.hidden{display:none!important}
+.admin-only.worker-hide{display:none!important}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo">溢 彩</div>
+  <nav>
+    <a data-panel="dashboard" onclick="showPanel('dashboard')" class="active">看 板</a>
+    <a data-panel="tasks" onclick="showPanel('tasks')">任 务</a>
+    <a data-panel="orders" onclick="showPanel('orders')">订 单</a>
+    <a data-panel="newOrder" onclick="showPanel('newOrder')" class="admin-only">录 单</a>
+    <a data-panel="inventory" onclick="showPanel('inventory')">库 存</a>
+    <a data-panel="inbound" onclick="showPanel('inbound')" class="admin-only">入 库</a>
+    <a data-panel="reports" onclick="showPanel('reports')">报 表</a>
+  </nav>
+  <div class="user">
+    <span id="uname">--</span>
+    <button onclick="doLogout()">退出</button>
+  </div>
+</header>
+
+<main class="main">
+
+<!-- ====== DASHBOARD ====== -->
+<section class="panel active" id="panel-dashboard">
+  <div class="stat-row" id="dashStats"></div>
+  <div class="card"><div class="card-hd">急单队列</div><div class="card-bd" id="dashUrgent"></div></div>
+</section>
+
+<!-- ====== TASKS ====== -->
+<section class="panel" id="panel-tasks">
+  <div class="stat-row" id="taskStats"></div>
+  <div id="taskList"></div>
+</section>
+
+<!-- ====== ORDERS ====== -->
+<section class="panel" id="panel-orders">
+  <div class="fbar">
+    <input type="text" id="ordSearch" placeholder="搜索" oninput="loadOrders()">
+    <select id="ordStatus" onchange="loadOrders()"><option value="">全部</option><option value="pending">待排</option><option value="in_progress">生产中</option><option value="completed">完成</option></select>
+    <button class="btn" onclick="loadOrders()">刷新</button>
+  </div>
+  <table><thead><tr><th>订单号</th><th>客户</th><th>工艺</th><th>优先级</th><th>状态</th><th>工序流</th></tr></thead><tbody id="ordBody"></tbody></table>
+  <div class="hidden" id="detailModal"><div class="modal-overlay" onclick="closeDetail()"><div class="modal" style="width:700px" onclick="event.stopPropagation()"><h3 id="detTitle"></h3><div id="detInfo" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px"></div><div id="detPipeline"></div><div class="btn-row"><button class="btn" onclick="closeDetail()">关闭</button></div></div></div></div>
+</section>
+
+<!-- ====== NEW ORDER ====== -->
+<section class="panel" id="panel-newOrder">
+  <div class="card"><div class="card-hd">新建订单</div><div class="card-bd">
+    <div class="frm-grid">
+      <div class="frm-field"><label>客户</label><input id="nocust" list="custList" placeholder="选择或输入" autocomplete="off"><datalist id="custList"></datalist></div>
+      <div class="frm-field"><label>款号</label><input id="noprod" placeholder="可选"></div>
+      <div class="frm-field"><label>工艺</label><select id="notpl" onchange="onTplChange()"><option value="">选工艺...</option></select></div>
+      <div class="frm-field"><label>优先级</label><select id="noprio"><option value="unmentioned">客户没提</option><option value="attention">客户关注</option><option value="normal">客户催产</option><option value="urgent">客户紧急</option><option value="deadline">死命令</option></select></div>
+      <div class="frm-field"><label>用料</label><select id="nomat"><option value="">加载中...</option></select></div>
+      <div class="frm-field" id="nosheet" style="display:none">
+        <label>片材 宽×长×厚</label>
+        <div class="frm-row" style="margin-top:0"><input id="nosw" placeholder="宽(m)" style="flex:1"><span style="color:var(--dim)">×</span><input id="nosl" placeholder="长(m)" style="flex:1"><span style="color:var(--dim)">×</span><input id="nost" placeholder="厚(mm)" style="flex:1"><input id="nosq" placeholder="总数" type="number" style="width:70px"></div>
+      </div>
+    </div>
+    <div id="nodims" style="margin-top:10px"></div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn" id="btnAddDim" style="display:none" onclick="addDimRow()">+ 尺寸行</button>
+      <button class="btn btn-pri" onclick="submitOrder()">提 交</button>
+      <span id="nohint" style="color:var(--dim);font-size:11px;align-self:center"></span>
+    </div>
+  </div></div>
+</section>
+
+<!-- ====== INVENTORY ====== -->
+<section class="panel" id="panel-inventory">
+  <div class="stat-row" id="invStats"></div>
+  <div id="invList"></div>
+</section>
+
+<!-- ====== INBOUND ====== -->
+<section class="panel" id="panel-inbound">
+  <div class="card"><div class="card-hd">库存入库</div><div class="card-bd">
+    <div class="frm-grid">
+      <div class="frm-field"><label>供应商</label><input id="inbsup" list="supList" placeholder="选择或输入"><datalist id="supList"></datalist></div>
+      <div class="frm-field"><label>材质</label><input id="inbmat" list="matList" placeholder="选择或输入"><datalist id="matList"></datalist></div>
+      <div class="frm-field"><label>颜色</label><input id="inbcol" placeholder="白/黑/灰..."></div>
+      <div class="frm-field"><label>规格 宽×长×厚</label><div class="frm-row" style="margin-top:0"><input id="inbw" placeholder="宽(m)" style="flex:1"><span style="color:var(--dim)">×</span><input id="inbl" placeholder="长(m)" style="flex:1"><span style="color:var(--dim)">×</span><input id="inbt" placeholder="厚(mm)" style="flex:1"></div></div>
+      <div class="frm-field"><label>数量(床)</label><input id="inbqty" type="number" min="1"></div>
+      <div class="frm-field"><label>单价(可选)</label><input id="inbprc" type="number" min="0"></div>
+      <div class="frm-field"><label>备注</label><input id="inbnote" placeholder="批次号"></div>
+    </div>
+    <button class="btn btn-pri" onclick="submitInbound()" style="margin-top:12px">确认入库</button>
+  </div></div>
+</section>
+
+<!-- ====== REPORTS ====== -->
+<section class="panel" id="panel-reports">
+  <div class="fbar">
+    <button class="btn" onclick="loadReport('daily')">日报</button>
+    <button class="btn" onclick="loadReport('weekly')">周报</button>
+    <button class="btn" onclick="loadReport('monthly')">月报</button>
+  </div>
+  <div id="reportBody"></div>
+</section>
+
+<!-- ====== FEEDBACK MODAL ====== -->
+<div class="hidden" id="fbModal"><div class="modal-overlay"><div class="modal"><h3>提交反馈</h3>
+  <input type="hidden" id="fboId"><input type="hidden" id="fbsId"><input type="hidden" id="fbfId">
+  <select id="fbType" style="width:100%;padding:6px;margin-bottom:8px;background:var(--input);border:1px solid var(--border);color:var(--text);border-radius:var(--radius)"><option value="material_quality">材料质量</option><option value="machine_failure">机器故障</option><option value="staff_shortage">人员不足</option><option value="other">其他</option></select>
+  <textarea id="fbDesc" rows="2" placeholder="描述问题..." style="width:100%;padding:6px;background:var(--input);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);font-family:var(--font);font-size:12px"></textarea>
+  <div class="btn-row"><button class="btn" onclick="closeFb()">取消</button><button class="btn btn-dan" onclick="submitFb()">提交</button></div>
+</div></div></div>
+
+</main>
+
+<script>
+// ====== GLOBALS ======
+const T=localStorage.getItem('token'),U=JSON.parse(localStorage.getItem('user')||'{}'),API='/api';
+if(!T)location.href='/login.html';
+document.getElementById('uname').textContent=U.name||'--';
+if(U.role==='worker')document.querySelectorAll('.admin-only').forEach(e=>e.classList.add('worker-hide'));
+const H=()=>({'Authorization':'Bearer '+T,'Content-Type':'application/json'});
+let allOrders=[],allFlows={};
+
+function doLogout(){localStorage.clear();location.href='/login.html'}
+
+// ====== PANEL SWITCH ======
+function showPanel(n){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  document.getElementById('panel-'+n).classList.add('active');
+  document.querySelector('[data-panel="'+n+'"]').classList.add('active');
+  if(n==='dashboard')loadDash();
+  if(n==='tasks')loadTasks();
+  if(n==='orders')loadOrders();
+  if(n==='newOrder'){initTpl();loadMatOpts()}
+  if(n==='inventory')loadInv();
+  if(n==='reports')loadReport('daily');
+}
+
+// ====== BUTTON LABELS ======
+const BTN_LABEL={'横竖分切':(s)=>s?'调用原材料':'分切数量','破片':'片材数量','直切':'切片数量','冲型':'冲型数量','背胶':'背胶数量','点胶':'点胶数量','贴布':'贴布数量','打包':'打包数量'};
+function getLabel(t,s){const l=BTN_LABEL[t];return typeof l==='function'?l(s):l||'完成数量'}
+
+// ====== DASHBOARD ======
+async function loadDash(){
+  const r=await fetch(API+'/orders',{headers:H()});const d=await r.json();allOrders=d.data||[];
+  const ur=allOrders.filter(o=>o.priority==='deadline'||o.priority==='urgent'&&o.status!=='completed');
+  const pg=allOrders.filter(o=>o.status==='in_progress');
+  document.getElementById('dashStats').innerHTML=`
+    <div class="stat"><div class="val">${allOrders.length}</div><div class="lbl">活跃订单</div></div>
+    <div class="stat warn"><div class="val">${ur.length}</div><div class="lbl">急单</div></div>
+    <div class="stat"><div class="val">${pg.length}</div><div class="lbl">生产中</div></div>
+  `;
+  document.getElementById('dashUrgent').innerHTML=ur.slice(0,8).map(o=>`
+    <div style="padding:8px;border-bottom:1px solid var(--border);cursor:pointer" onclick="openDetail('${o.id}')">
+      <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${o.priority==='deadline'?'var(--danger)':'var(--warning)'};margin-right:6px"></span>
+      <span style="font-family:var(--mono);color:var(--accent)">${o.code}</span>
+      <span>${o.customerName} · ${o.processTemplate}</span>
+    </div>
+  `).join('')||'<div style="color:var(--dim);padding:12px">暂无急单</div>';
+}
+
+// ====== WORKER TASKS ======
+async function loadTasks(){
+  const r=await fetch(API+'/workers/'+U.name+'/tasks',{headers:H()});const d=await r.json();
+  if(!d.success)return;
+  document.getElementById('taskStats').innerHTML=`
+    <div class="stat"><div class="val">${d.data.count}</div><div class="lbl">总任务</div></div>
+    <div class="stat"><div class="val" style="color:var(--accent)">${d.data.running}</div><div class="lbl">进行中</div></div>
+    <div class="stat"><div class="val">${d.data.waiting}</div><div class="lbl">待处理</div></div>
+  `;
+  document.getElementById('taskList').innerHTML=d.data.tasks.map(t=>`
+    <div class="task-item ${t.stepStatus==='running'?'running':t.stepStatus==='ready'?'ready':''}">
+      <div class="ti-seq">${t.stepSequence}/${t.totalSteps}</div>
+      <div class="ti-info">
+        <div class="ti-code">${t.orderCode} · ${t.customer}</div>
+        <div class="ti-spec">${t.spec} | ${t.machine} | <span style="color:${t.priorityColor}">${t.priorityLabel}</span></div>
+      </div>
+      <div class="ti-act">
+        ${t.stepStatus==='ready'||t.stepStatus==='running'?`
+          <input type="number" id="qty-${t.stepId}" placeholder="量" min="1">
+          <button class="btn btn-pri btn-sm" onclick="doComplete('${t.flowId}','${t.stepId}','${t.stepType}',${t.stepSequence})">${getLabel(t.stepType,t.stepSequence===1)}</button>
+          <button class="btn btn-sm" onclick="openFb('${t.orderId}','${t.stepId}','${t.flowId}')">反馈</button>
+        `:`<span style="color:var(--dim);font-size:11px">${t.completedQty}/${t.requiredQty||'?'}</span>`}
+      </div>
+    </div>
+  `).join('')||'<div style="color:var(--dim);text-align:center;padding:30px">暂无任务</div>';
+}
+
+async function doComplete(fid,sid,type,seq){
+  const q=parseInt(document.getElementById('qty-'+sid)?.value||'0');
+  if(!q||q<=0){alert('请输入数量');return}
+  const r=await fetch(API+'/processes/complete',{method:'POST',headers:H(),body:JSON.stringify({flowId:fid,stepId:sid,quantity:q,worker:U.name})});
+  const d=await r.json();alert(d.data?.message||'已记录');loadTasks();
+}
+
+// ====== ORDERS ======
+async function loadOrders(){
+  await loadDash();
+  const s=(document.getElementById('ordSearch')?.value||'').toLowerCase();
+  const st=document.getElementById('ordStatus')?.value||'';
+  const flt=allOrders.filter(o=>{
+    if(s&&!o.code.toLowerCase().includes(s)&&!o.customerName.toLowerCase().includes(s))return false;
+    if(st&&o.status!==st)return false;return true;
+  });
+  const sl=(s)=>({pending:'待排',scheduled:'已排',in_progress:'生产中',completed:'✅',cancelled:'取消'}[s]||s);
+  const pl=(p)=>({deadline:'死命令',urgent:'催产',normal:'关注',attention:'没提',unmentioned:'没提'}[p]||p);
+  document.getElementById('ordBody').innerHTML=flt.map(o=>`
+    <tr>
+      <td><a href="javascript:openDetail('${o.id}')" style="font-family:var(--mono);font-size:12px">${o.code}</a></td>
+      <td>${o.customerName}</td><td>${o.processTemplate}</td>
+      <td>${o.priority==='deadline'?'<span class="badge badge-dl">死命令</span>':o.priority==='urgent'?'<span class="badge badge-urg">催产</span>':pl(o.priority)}</td>
+      <td>${sl(o.status)}</td>
+      <td><div class="pipeline" style="padding:0;gap:0" id="miniPipe-${o.id}"></div></td>
+    </tr>`).join('');
+  flt.slice(0,20).forEach(o=>loadMiniPipe(o.id));
+}
+async function loadMiniPipe(oid){
+  try{
+    const r=await fetch(API+'/processes/'+oid,{headers:H()});const f=(await r.json()).data;
+    if(!f)return;allFlows[oid]=f;
+    const el=document.getElementById('miniPipe-'+oid);
+    if(el)el.innerHTML=f.steps.map((s,i)=>`
+      <div class="pipe-node ${s.status}" style="min-width:50px;padding:4px 8px;font-size:10px"><div class="pn-type" style="font-size:10px">${s.type}</div></div>
+      ${i<f.steps.length-1?`<div class="pipe-arrow ${s.status==='done'?'active':''}" style="width:16px"></div>`:''}
+    `).join('');
+  }catch(e){}
+}
+
+// ====== ORDER DETAIL ======
+async function openDetail(oid){
+  const o=allOrders.find(x=>x.id===oid);if(!o)return;
+  document.getElementById('detTitle').textContent=o.code+' — '+o.customerName;
+  document.getElementById('detInfo').innerHTML=`
+    <div><span style="color:var(--dim)">工艺</span> ${o.processTemplate}</div>
+    <div><span style="color:var(--dim)">用料</span> ${o.materialSpec}</div>
+    <div><span style="color:var(--dim)">片材</span> ${o.sheetSize}</div>
+    <div><span style="color:var(--dim)">切片</span> ${o.sliceSize} ×${o.sliceQty||'-'}</div>
+    <div><span style="color:var(--dim)">冲型</span> ${o.punchSize||'-'} ×${o.punchQty||'-'}</div>
+    <div><span style="color:var(--dim)">优先级</span> ${o.priority}</div>
+  `;
+  let f=allFlows[oid];
+  if(!f){const r=await fetch(API+'/processes/'+oid,{headers:H()});f=(await r.json()).data;if(f)allFlows[oid]=f}
+  if(f){
+    document.getElementById('detPipeline').innerHTML=`<div class="pipeline">${f.steps.map((s,i)=>`
+      <div class="pipe-node ${s.status}">
+        <div class="pn-type">${s.type}</div>
+        <div class="pn-worker">${s.sliceSize||s.punchQty||''}</div>
+        <div class="pn-qty">${s.completedQty}/${s.requiredQty||'?'}</div>
+      </div>${i<f.steps.length-1?`<div class="pipe-arrow ${s.status==='done'?'active':''}"></div>`:''}
+    `).join('')}</div>`;
+  }
+  document.getElementById('detailModal').classList.remove('hidden');
+}
+function closeDetail(){document.getElementById('detailModal').classList.add('hidden')}
+
+// ====== NEW ORDER ======
+const ALL_TPL=['片材','片材切片','片材冲型','片材切片冲型','切片冲型','片材背胶','片材背胶冲型','片材背胶切片','片材背胶切片冲型','片材贴布','片材贴布冲型','片材贴布切片','片材贴布切片冲型','库存片材','库存切片','库存冲型','库存切片冲型'];
+function initTpl(){const s=document.getElementById('notpl');if(s.options.length>1)return;ALL_TPL.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;s.appendChild(o)})}
+function onTplChange(){
+  const t=document.getElementById('notpl').value;
+  document.getElementById('nosheet').style.display=t&&!t.startsWith('库存')&&t!=='打包'?'':'none';
+  document.getElementById('btnAddDim').style.display=t&&(t.includes('切片')||t.includes('冲型'))?'':'none';
+  if(t&&(t.includes('切片')||t.includes('冲型'))&&document.getElementById('nodims').children.length===0)addDimRow();
+}
+function addDimRow(){
+  const d=document.createElement('div');d.className='frm-row';
+  const t=document.getElementById('notpl').value;
+  let h='<span style="font-size:10px;color:var(--dim);min-width:24px">行</span>';
+  if(t.includes('切片'))h+='<input placeholder="切片尺寸" class="ds" style="flex:1"><input placeholder="数量" type="number" class="dq" style="width:70px">';
+  if(t.includes('冲型'))h+='<input placeholder="冲型后尺寸" class="dp" style="flex:1"><input placeholder="数量" type="number" class="dqp" style="width:70px">';
+  h+='<button class="btn btn-dan btn-sm" onclick="this.parentElement.remove()">删</button>';
+  d.innerHTML=h;document.getElementById('nodims').appendChild(d);
+}
+function loadMatOpts(){
+  fetch(API+'/materials/options',{headers:H()}).then(r=>r.json()).then(d=>{
+    const s=document.getElementById('nomat');
+    if(s)s.innerHTML='<option value="">选择用料...</option>'+(d.data?.options||[]).map(o=>`<option value="${o.id}">${o.label}</option>`).join('');
+  }).catch(()=>{});
+}
+async function submitOrder(){
+  const cust=document.getElementById('nocust').value.trim();
+  const tpl=document.getElementById('notpl').value;
+  if(!cust||!tpl){alert('请填客户和工艺');return}
+  const dims=[];document.getElementById('nodims').querySelectorAll('.frm-row').forEach(r=>{
+    const d={};const s=r.querySelector('.ds');const sq=r.querySelector('.dq');const p=r.querySelector('.dp');const pq=r.querySelector('.dqp');
+    if(s&&s.value.trim())d.sliceSize=s.value.trim();if(sq&&sq.value)d.sliceQty=parseInt(sq.value)||0;
+    if(p&&p.value.trim())d.punchSize=p.value.trim();if(pq&&pq.value)d.punchQty=parseInt(pq.value)||0;
+    if(Object.keys(d).length)dims.push(d);
+  });
+  const needsSheet=tpl&&!tpl.startsWith('库存')&&tpl!=='打包';
+  const sw=document.getElementById('nosw').value.trim(),sl=document.getElementById('nosl').value.trim(),st=document.getElementById('nost').value.trim(),sq=parseInt(document.getElementById('nosq').value)||0;
+  if(needsSheet&&(!sw||!sl||!st||!sq)){alert('请填片材尺寸和数量');return}
+  const body={code:'ORD-'+Date.now().toString(36).toUpperCase(),customerName:cust,productCode:document.getElementById('noprod').value.trim(),processTemplate:tpl,priority:document.getElementById('noprio').value,materialSpec:document.getElementById('nomat').value||'',sheetSize:needsSheet?`${sw}×${sl}×${st}`:'',sliceSize:dims[0]?.sliceSize||'',sliceQty:dims[0]?.sliceQty||sq,category:'未分类',dimensions:dims,punchQty:dims[0]?.punchQty||undefined};
+  try{
+    const r=await fetch(API+'/orders',{method:'POST',headers:H(),body:JSON.stringify(body)});const d=await r.json();
+    alert(d.success?'订单创建: '+d.data.code:'失败: '+(d.error?.message||d.error));
+    if(d.success)showPanel('orders');
+  }catch(e){alert('提交失败')}
+}
+
+// ====== INVENTORY ======
+async function loadInv(){
+  const r=await fetch(API+'/reports/inventory',{headers:H()});const d=await r.json();if(!d.success)return;
+  document.getElementById('invStats').innerHTML=`
+    <div class="stat"><div class="val">${d.data.totalStock||0}</div><div class="lbl">总库存(床)</div></div>
+    <div class="stat bad"><div class="val">${d.data.lowStockCount||0}</div><div class="lbl">低库存预警</div></div>
+  `;
+  const bm=d.data.byMaterial||{};
+  document.getElementById('invList').innerHTML=Object.entries(bm).map(([k,v])=>`
+    <div class="card"><div class="card-hd">${k} <span style="font-family:var(--mono)">${v.totalQty} 床</span></div>
+    <div class="card-bd">${v.batches.map(b=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;${b.qty>0&&b.qty<10?'background:var(--danger-dim);padding:6px':''}"><span>${b.batchNo} · ${b.spec}</span><span style="font-family:var(--mono);${b.qty<10?'color:var(--danger);font-weight:700':''}">${b.qty} 床</span></div>`).join('')}</div></div>
+  `).join('');
+}
+
+// ====== INBOUND ======
+async function submitInbound(){
+  const b={supplier:document.getElementById('inbsup').value.trim(),material:document.getElementById('inbmat').value.trim(),color:document.getElementById('inbcol').value.trim(),width:parseFloat(document.getElementById('inbw').value)||0,length:parseFloat(document.getElementById('inbl').value)||0,thickness:parseFloat(document.getElementById('inbt').value)||0,quantity:parseInt(document.getElementById('inbqty').value)||0,price:parseFloat(document.getElementById('inbprc').value)||0,notes:document.getElementById('inbnote').value.trim()};
+  if(!b.supplier||!b.material||!b.width||!b.length||!b.thickness||!b.quantity){alert('请填所有必填项');return}
+  const r=await fetch(API+'/materials/inbound',{method:'POST',headers:H(),body:JSON.stringify(b)});const d=await r.json();
+  alert(d.success?d.data?.message||'入库成功':'失败: '+(d.error?.message||d.error));
+  if(d.success){['inbsup','inbmat','inbcol','inbw','inbl','inbt','inbqty','inbprc','inbnote'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''})}
+}
+
+// ====== REPORTS ======
+async function loadReport(type){
+  const eps={daily:'/api/reports/daily-inventory',weekly:'/api/reports/weekly-inventory',monthly:'/api/reports/monthly-orders'};
+  const r=await fetch(eps[type],{headers:H()});const d=await r.json();if(!d.success)return;
+  let h='';const v=d.data;
+  if(type==='daily'){
+    h=`<div class="stat-row"><div class="stat"><div class="val">${v.totalStock||0}</div><div class="lbl">当前库存</div></div><div class="stat"><div class="val" style="color:var(--success)">${v.inboundToday||0}</div><div class="lbl">今日入库</div></div><div class="stat warn"><div class="val">${v.outboundToday||0}</div><div class="lbl">今日出库</div></div></div>`;
+    if(v.transactions?.length)h+='<table><thead><tr><th>批次</th><th>类型</th><th>数量</th><th>时间</th></tr></thead><tbody>'+v.transactions.map(tx=>`<tr><td>${tx.batchId}</td><td>${tx.type}</td><td>${tx.quantity}</td><td>${tx.timestamp}</td></tr>`).join('')+'</tbody></table>';
+  }else if(type==='weekly'){
+    h=`<div class="stat-row"><div class="stat"><div class="val">${v.totalStock||0}</div><div class="lbl">当前库存</div></div><div class="stat bad"><div class="val">${v.lowStock||0}</div><div class="lbl">低库存预警</div></div></div>`;
+    if(v.bySupplier)for(const[k,z]of Object.entries(v.bySupplier))h+=`<div class="card"><div class="card-hd">${k}</div><div class="card-bd">入库 ${z.inbound} 床 · 出库 ${z.outbound} 床</div></div>`;
+  }else if(type==='monthly'){
+    h=`<div class="stat-row"><div class="stat"><div class="val">${v.total||0}</div><div class="lbl">活跃订单</div></div><div class="stat"><div class="val">${v.newThisMonth||0}</div><div class="lbl">本月新增</div></div><div class="stat"><div class="val" style="color:var(--success)">${v.completedThisMonth||0}</div><div class="lbl">本月完成</div></div></div>`;
+    h+='<table><thead><tr><th>客户</th><th>订单数</th></tr></thead><tbody>'+(v.byCustomer||[]).map(([c,n])=>`<tr><td>${c}</td><td>${n}</td></tr>`).join('')+'</tbody></table>';
+  }
+  document.getElementById('reportBody').innerHTML=h;
+}
+
+// ====== FEEDBACK ======
+function openFb(oid,sid,fid){document.getElementById('fboId').value=oid;document.getElementById('fbsId').value=sid;document.getElementById('fbfId').value=fid;document.getElementById('fbModal').classList.remove('hidden')}
+function closeFb(){document.getElementById('fbModal').classList.add('hidden')}
+async function submitFb(){
+  const r=await fetch(API+'/feedback',{method:'POST',headers:H(),body:JSON.stringify({orderId:document.getElementById('fboId').value,processStepId:document.getElementById('fbsId').value,flowId:document.getElementById('fbfId').value,type:document.getElementById('fbType').value,description:document.getElementById('fbDesc').value,severity:'medium'})});
+  alert((await r.json()).data?.message||'已提交');closeFb();
+}
+
+// ====== INIT ======
+if(U.role==='worker'){showPanel('tasks');loadTasks()}
+else{loadDash();initTpl();loadMatOpts()}
+</script>
+</body>
+</html>
