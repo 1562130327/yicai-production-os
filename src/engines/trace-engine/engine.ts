@@ -3,29 +3,19 @@
 // 核心职责：生产路径记录、异常反推、补产机制
 // ============================================================
 
-import { v4 as uuid } from 'uuid';
 import { TraceRepository, TraceEvent, AnomalyEvent, SupplementRecord } from '../../domain/trace';
-import { TraceEventType, ProcessType, ProcessStatus } from '../../shared/types';
 import { Result, success, failure } from '../../shared/utils';
 import { DomainError } from '../../shared/errors';
+import { LogEventParams, CreateSupplementParams } from './types';
+import { validateAnomalyParams, shouldTriggerSupplement } from './rules/anomaly-rules';
+import { validateSupplementParams, generateSupplementId } from './rules/supplement-rules';
+import { generateEventId } from './allocator/id-allocator';
 
 export class TraceEngine {
   constructor(private readonly traceRepo: TraceRepository) {}
 
   /** 记录生产事件 */
-  async logEvent(params: {
-    orderId: string;
-    eventType: TraceEventType;
-    processType?: ProcessType;
-    processStatus?: ProcessStatus;
-    fromProcess?: string;
-    toProcess?: string;
-    taskId?: string;
-    worker?: string;
-    machineId?: string;
-    materialBatchId?: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<TraceEvent> {
+  async logEvent(params: LogEventParams): Promise<TraceEvent> {
     const event = await this.traceRepo.logEvent({
       orderId: params.orderId,
       eventType: params.eventType,
@@ -58,6 +48,10 @@ export class TraceEngine {
     severity: AnomalyEvent['severity'];
     triggerSupplement?: boolean;
   }): Promise<Result<AnomalyEvent, DomainError>> {
+    // 校验参数
+    const validation = validateAnomalyParams(params);
+    if (validation.isFailure()) return failure(validation.error);
+
     const anomaly = await this.traceRepo.logAnomaly({
       orderId: params.orderId,
       processStepId: params.processStepId,
@@ -65,7 +59,7 @@ export class TraceEngine {
       description: params.description,
       severity: params.severity,
       detectedAt: new Date().toISOString(),
-      triggerSupplement: params.triggerSupplement ?? false,
+      triggerSupplement: params.triggerSupplement ?? shouldTriggerSupplement(params.severity, params.type),
     });
 
     return success(anomaly);
@@ -84,12 +78,12 @@ export class TraceEngine {
   }
 
   /** 创建补产订单 */
-  async createSupplement(params: {
-    originalOrderId: string;
-    reason: string;
-    quantity: number;
-  }): Promise<Result<SupplementRecord, DomainError>> {
-    const supplementId = `SUP-${params.originalOrderId}-${Date.now()}`;
+  async createSupplement(params: CreateSupplementParams): Promise<Result<SupplementRecord, DomainError>> {
+    // 校验参数
+    const validation = validateSupplementParams(params);
+    if (validation.isFailure()) return failure(validation.error);
+
+    const supplementId = generateSupplementId(params.originalOrderId);
 
     const record = await this.traceRepo.logSupplement({
       originalOrderId: params.originalOrderId,

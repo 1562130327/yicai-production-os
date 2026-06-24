@@ -39,6 +39,7 @@ export interface Services {
   scheduleEngine: ScheduleEngine;
   inventoryRepo: any;
   materialRepo: any;
+  taskRepo: any;
   machineRepo: any;
   workerRepo: any;
   customerRepo: any;
@@ -69,7 +70,7 @@ export async function buildServices(): Promise<Services> {
   const traceEngine = new TraceEngine(traceRepo);
 
   // TraceEngine 订阅领域事件（解耦：业务代码只 emit，不直接调 trace）
-  const sub = (etype: string) => eventBus.on(etype, (e) => { traceEngine.logEvent({ ...e, eventType: e.type as any }); });
+  const sub = (etype: string) => eventBus.on(etype as any, (e: any) => { traceEngine.logEvent({ ...e, eventType: e.type as any }); });
   sub('order_created');
   sub('process_started');
   sub('process_completed');
@@ -96,6 +97,7 @@ export async function buildServices(): Promise<Services> {
     scheduleEngine,
     inventoryRepo,
     materialRepo,
+    taskRepo,
     machineRepo,
     workerRepo,
     customerRepo,

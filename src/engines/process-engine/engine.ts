@@ -3,99 +3,43 @@
 // 核心职责：工艺模板展开、工序流转控制、DAG构建、状态转换、返工路径
 // ============================================================
 
-import { v4 as uuid } from 'uuid';
 import {
   ProcessFlow,
   ProcessStep,
-  ProcessEdge,
   CreateProcessInput,
   ProcessRepository,
 } from '../../domain/process';
-import { ProcessType, ProcessStatus, PROCESS_TEMPLATE_MAP } from '../../shared/types';
-import { canTransition, isTerminal } from './state-machine';
+import { ProcessStatus } from '../../shared/types';
 import { Result, success, failure } from '../../shared/utils';
 import { DomainError } from '../../shared/errors';
-
-/** 工序类型默认执行顺序（位置=执行序号） */
-export const PROCESS_ORDER: Record<ProcessType, number> = {
-  '横竖分切': 1, '破片': 2, '直切': 3, '冲型': 4,
-  '背胶': 5, '贴布': 6, '点胶': 7, '粘胶': 8,
-  '改回填': 9, '打包': 10,
-};
+import { expandTemplate } from './planner/flow-planner';
+import { buildLinearDag } from './planner/dag-builder';
+import { allocateStepQuantities } from './allocator/step-allocator';
+import { canTransition, isTerminal } from './rules/state-machine';
+import { validateTransition, validateFlowInput } from './rules/transition-rules';
 
 export class ProcessEngine {
   constructor(private readonly processRepo: ProcessRepository) {}
 
   /** 从工艺模板生成工序流 DAG */
   async generateFlow(input: CreateProcessInput): Promise<Result<ProcessFlow, DomainError>> {
-    // 1. 从模板展开原子工序（优先数据库，常量后备）
-    let types: ProcessType[] = [];
-    try {
-      const row = (this.processRepo as any).db?.prepare?.('SELECT steps FROM process_templates WHERE name = ?')?.get(input.template) as any;
-      if (row) types = JSON.parse(row.steps);
-    } catch {}
-    if (!types.length) types = [...(PROCESS_TEMPLATE_MAP[input.template] ?? [])];
+    // 1. 从模板展开原子工序
+    const typesResult = expandTemplate(input);
+    if (typesResult.isFailure()) return failure(typesResult.error);
+    const types = typesResult.value;
 
-    // 2. 处理增删
-    if (input.removeSteps) {
-      types = types.filter(t => !input.removeSteps!.includes(t));
-    }
-    if (input.extraSteps) {
-      types.push(...input.extraSteps);
-    }
+    // 2. 按执行顺序排序并生成工序步骤
+    const steps = allocateStepQuantities(types, input);
 
-    // 3. 按执行顺序排序
-    const sortedTypes = types.sort(
-      (a, b) => (PROCESS_ORDER[a] ?? 99) - (PROCESS_ORDER[b] ?? 99),
-    );
+    // 3. 构建边（线性依赖链）
+    const edges = buildLinearDag(steps);
 
-    if (sortedTypes.length === 0) {
-      return failure(new DomainError('工艺模板展开后无工序', 'EMPTY_TEMPLATE', { template: input.template }));
-    }
-
-    // 4. 确定各工序的需求数量
-    const stepRequiredQty = (type: ProcessType): number | undefined => {
-      switch (type) {
-        case '横竖分切': case '破片': return undefined; // 片材数由师傅判断
-        case '直切': return input.sliceQty > 0 ? input.sliceQty : undefined;
-        case '冲型': return (input.punchQty ?? 0) > 0 ? input.punchQty : undefined;
-        default: return (input.punchQty ?? input.sliceQty ?? 0) > 0 ? (input.punchQty ?? input.sliceQty) : undefined;
-      }
-    };
-
-    // 5. 生成工序步骤
-    const steps: ProcessStep[] = sortedTypes.map((type, idx) => ({
-      id: uuid(),
-      type,
-      name: `${type}`,
-      sequence: idx + 1,
-      status: 'waiting' as ProcessStatus,
-      completedQty: 0,
-      requiredQty: stepRequiredQty(type),
-      // 材料约束只给第一步
-      requiredMaterialSpec: idx === 0 ? input.materialSpec : undefined,
-      requiredSheetSize: idx === 0 ? input.sheetSize : undefined,
-      // 切割参数
-      sliceSize: ['横竖分切', '破片', '直切'].includes(type) ? input.sliceSize : undefined,
-      sliceQty: ['横竖分切', '破片', '直切'].includes(type) ? input.sliceQty : undefined,
-      // 冲型参数
-      punchType: type === '冲型' ? input.punchType : undefined,
-      punchQty: type === '冲型' ? input.punchQty : undefined,
-      // 冲型步骤需要的其他参数（punchSize 通过 step 级别的 metadata 或者字段传递，暂用 punchQty 和 sliceSize 区分直切和冲型）
-    }));
-
-    // 5. 构建边（线性依赖链）
-    const edges: ProcessEdge[] = [];
-    for (let i = 1; i < steps.length; i++) {
-      edges.push({
-        from: steps[i - 1].id,
-        to: steps[i].id,
-        condition: `${steps[i - 1].type} → ${steps[i].type}`,
-      });
-    }
+    // 4. 校验
+    const validation = validateFlowInput(steps, edges);
+    if (validation.isFailure()) return failure(validation.error);
 
     const flow: ProcessFlow = {
-      id: uuid(),
+      id: '',
       orderId: input.orderId,
       steps,
       edges,
@@ -121,25 +65,8 @@ export class ProcessEngine {
       return failure(new DomainError(`工序步骤 ${stepId} 不存在`, 'PROCESS_STEP_NOT_FOUND'));
     }
 
-    if (!canTransition(step.status, toStatus)) {
-      return failure(
-        new DomainError(
-          `非法流转: ${step.type} 从 ${step.status} → ${toStatus}`,
-          'INVALID_TRANSITION',
-          { stepId, from: step.status, to: toStatus },
-        ),
-      );
-    }
-
-    if (toStatus === 'ready') {
-      const deps = this.getUpstreamSteps(flow, stepId);
-      const allDone = deps.every(s => isTerminal(s.status));
-      if (!allDone) {
-        return failure(
-          new DomainError('上游工序未完成，无法就绪', 'UPSTREAM_NOT_DONE', { stepId }),
-        );
-      }
-    }
+    const validation = validateTransition(step, toStatus, flow, stepId);
+    if (validation.isFailure()) return failure(validation.error);
 
     const updated = await this.processRepo.updateStepStatus(flowId, stepId, toStatus);
     return success(updated);

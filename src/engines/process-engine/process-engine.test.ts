@@ -3,7 +3,7 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest';
-import { canTransition, getNextStates, isTerminal, isActive } from './state-machine';
+import { canTransition, getNextStates, isTerminal, isActive } from './rules/state-machine';
 
 describe('工序状态机', () => {
   describe('canTransition', () => {

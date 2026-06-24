@@ -3,7 +3,7 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest';
-import { parseSize, slicesPerSheet, generateCuttingPlan } from './cutting-optimizer';
+import { parseSize, slicesPerSheet, generateCuttingPlan } from './planner/cutting-planner';
 
 describe('切割优化器', () => {
   describe('parseSize', () => {

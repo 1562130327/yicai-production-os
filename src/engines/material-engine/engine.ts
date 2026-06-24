@@ -4,10 +4,13 @@
 // ============================================================
 
 import { MaterialRepository, MaterialMatch } from '../../domain/material';
-import { InventoryRepository, InventoryBatch } from '../../domain/inventory';
+import { InventoryRepository } from '../../domain/inventory';
 import { Result, success, failure } from '../../shared/utils';
 import { DomainError, MaterialNotAvailableError } from '../../shared/errors';
-import { generateCuttingPlan, CuttingInput } from './cutting-optimizer';
+import { generateCuttingPlan, CuttingInput } from './planner/cutting-planner';
+import { calculateLoss } from './rules/loss-rules';
+import { canMergeOrders } from './rules/matching-rules';
+import { allocateBatches, totalAvailableQty } from './allocator/batch-allocator';
 
 export class MaterialEngine {
   constructor(
@@ -30,7 +33,7 @@ export class MaterialEngine {
 
     // 2. 查找可用库存批次
     const availableBatches = await this.inventoryRepo.findAvailable(materialSpec, 0);
-    const availableQty = availableBatches.reduce((sum, b) => sum + b.remainingQty, 0);
+    const availableQty = totalAvailableQty(availableBatches);
 
     // 3. 计算切割需求（使用材料默认损耗率）
     const plan = generateCuttingPlan({
@@ -67,44 +70,18 @@ export class MaterialEngine {
   }
 
   /** 计算损耗 */
-  calculateLoss(
+  loss(
     sheetSize: string,
     sliceSize: string,
     sliceQty: number,
     lossRate: number,
   ): { totalSheets: number; expectedLoss: number; efficiency: number } {
-    const plan = generateCuttingPlan({
-      materialSpec: 'temp',
-      sheetSize,
-      sliceSize,
-      sliceQty,
-      lossRate,
-      availableBatches: [{ batchId: 'any', quantity: Infinity }],
-    });
-
-    if (!plan) {
-      return { totalSheets: 0, expectedLoss: 0, efficiency: 0 };
-    }
-
-    const theoreticalMinSheets = Math.ceil(sliceQty / plan.slicesPerSheet);
-    const efficiency = theoreticalMinSheets / plan.totalSheets;
-
-    return {
-      totalSheets: plan.totalSheets,
-      expectedLoss: plan.expectedLoss,
-      efficiency,
-    };
+    return calculateLoss(sheetSize, sliceSize, sliceQty, lossRate);
   }
 
   /** 检查多订单是否可合并切割 */
   canMerge(orders: CuttingInput[]): boolean {
-    if (orders.length < 2) return false;
-    const spec = orders[0].materialSpec;
-    const sheetSize = orders[0].sheetSize;
-    const sliceSize = orders[0].sliceSize;
-    return orders.every(
-      o => o.materialSpec === spec && o.sheetSize === sheetSize && o.sliceSize === sliceSize,
-    );
+    return canMergeOrders(orders);
   }
 
   /** 预留库存 */

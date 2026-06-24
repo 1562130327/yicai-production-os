@@ -3,7 +3,7 @@
 // 核心职责：片材 → 切片计算、损耗优化、多订单合并切割
 // ============================================================
 
-import { CuttingPlan, BatchUsage } from '../../domain/material';
+import { CuttingPlan, BatchUsage } from '../../../domain/material';
 
 export interface CuttingInput {
   materialSpec: string;

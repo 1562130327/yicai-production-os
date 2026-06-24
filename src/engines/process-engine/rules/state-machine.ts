@@ -3,9 +3,9 @@
 // 控制工序流转的状态转换规则
 // ============================================================
 
-import { ProcessStatus } from '../../shared/types';
-import { ProcessTransition } from '../../domain/process';
-import { InvalidProcessFlowError } from '../../shared/errors';
+import { ProcessStatus } from '../../../shared/types';
+import { ProcessTransition } from '../../../domain/process';
+import { InvalidProcessFlowError } from '../../../shared/errors';
 
 /** 工序状态转换表 */
 export const PROCESS_TRANSITIONS: ProcessTransition[] = [

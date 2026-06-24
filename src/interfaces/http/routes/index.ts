@@ -11,6 +11,7 @@ import { createCustomerRoutes } from './customer.routes';
 import { createWorkerRoutes } from './worker.routes';
 import { createWorkersAdminRoutes } from './workers-admin.routes';
 import { createMachineRoutes } from './machine.routes';
+import { createDashboardRoutes } from './dashboard.routes';
 import { buildServices } from '../../../modules/production';
 import { requireRole } from '../middleware/auth';
 
@@ -29,4 +30,5 @@ export async function registerRoutes(app: Express): Promise<void> {
   app.use('/api/workers', createWorkerRoutes(services.orderService, services.processService));
   app.use('/api/workers-admin', createWorkersAdminRoutes(services.workerRepo));
   app.use('/api/machines', createMachineRoutes(services.machineRepo));
+  app.use('/api/dashboard', requireRole('admin', 'merchandiser'), createDashboardRoutes(services));
 }

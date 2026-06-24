@@ -1,1 +1,1 @@
-export { TraceEngine } from './trace-engine';
+export { TraceEngine } from './engine';
