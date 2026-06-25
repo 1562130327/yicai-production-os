@@ -6,8 +6,9 @@ import express, { Express, Request, Response } from 'express';
 import path from 'path';
 import { errorHandler } from './middleware/error-handler';
 import { requestLogger } from './middleware/logger';
-import { authMiddleware, login, logout, changePassword } from './middleware/auth';
+import { authMiddleware, login, logout, changePassword, seedUsers } from './middleware/auth';
 import { registerRoutes } from './routes';
+import { getConnection } from '../../infrastructure/database/connection';
 
 export async function createServer(): Promise<Express> {
   const app = express();
@@ -21,14 +22,18 @@ export async function createServer(): Promise<Express> {
   app.use(express.static(clientDir, { etag: false, cacheControl: false }));
   app.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
+  // 初始化用户表（首次运行时 seed 默认用户）
+  const db = await getConnection();
+  await seedUsers(db);
+
   // 认证路由（不受权限控制）
-  app.post('/api/auth/login', (req: Request, res: Response) => {
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) {
       res.status(400).json({ success: false, error: '请输入用户名和密码' });
       return;
     }
-    const result = login(username, password);
+    const result = await login(username, password);
     if (!result) {
       res.status(401).json({ success: false, error: '用户名或密码错误' });
       return;
@@ -42,9 +47,9 @@ export async function createServer(): Promise<Express> {
     res.json({ success: true, data: null });
   });
 
-  app.post('/api/auth/changepwd', (req: Request, res: Response) => {
+  app.post('/api/auth/changepwd', async (req: Request, res: Response) => {
     const { username, oldPassword, newPassword } = req.body;
-    if (changePassword(username, oldPassword, newPassword)) {
+    if (await changePassword(username, oldPassword, newPassword)) {
       res.json({ success: true, data: null });
     } else {
       res.status(400).json({ success: false, error: '原密码错误' });

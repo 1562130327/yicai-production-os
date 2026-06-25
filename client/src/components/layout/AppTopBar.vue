@@ -36,6 +36,7 @@ const allNavItems = [
   { path: '/machines', label: '机 器', roles: ['admin', 'merchandiser', 'worker'] },
   { path: '/workers', label: '工 人', roles: ['admin', 'merchandiser', 'worker'] },
   { path: '/reports', label: '报 表', roles: ['admin', 'merchandiser', 'worker'] },
+  { path: '/users', label: '用 户', roles: ['admin'] },
 ]
 
 const navItems = allNavItems.filter((item) => {

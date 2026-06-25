@@ -68,6 +68,12 @@ const router = createRouter({
       component: () => import('@/views/ReportsView.vue'),
       meta: { requiresAuth: true, title: '报表' },
     },
+    {
+      path: '/users',
+      name: 'Users',
+      component: () => import('@/views/UsersView.vue'),
+      meta: { requiresAuth: true, title: '用户管理', roles: ['admin'] },
+    },
   ],
 })
 
