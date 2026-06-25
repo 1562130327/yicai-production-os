@@ -6,10 +6,18 @@
       <option value="staff_shortage">人员不足</option>
       <option value="other">其他</option>
     </select>
-    <textarea v-model="description" rows="2" placeholder="描述问题..." class="fb-textarea" />
+    <textarea
+      v-model="description"
+      rows="2"
+      placeholder="描述问题..."
+      class="fb-textarea"
+      :class="{ 'fb-textarea--error': descError }"
+      @blur="validateDesc"
+    />
+    <span v-if="descError" class="field-error">{{ descError }}</span>
     <template #footer>
       <button class="btn" @click="close">取消</button>
-      <button class="btn btn--danger" @click="submit">提交</button>
+      <button class="btn btn--danger" :disabled="!description.trim()" @click="submit">提交</button>
     </template>
   </BaseModal>
 </template>
@@ -28,6 +36,11 @@ const stepId = ref('')
 const flowId = ref('')
 const feedbackType = ref('material_quality')
 const description = ref('')
+const descError = ref('')
+
+function validateDesc() {
+  descError.value = description.value.trim() ? '' : '请描述问题'
+}
 
 function open(orderIdVal: string, stepIdVal: string, flowIdVal: string) {
   orderId.value = orderIdVal
@@ -35,6 +48,7 @@ function open(orderIdVal: string, stepIdVal: string, flowIdVal: string) {
   flowId.value = flowIdVal
   feedbackType.value = 'material_quality'
   description.value = ''
+  descError.value = ''
   isOpen.value = true
 }
 
@@ -43,6 +57,8 @@ function close() {
 }
 
 async function submit() {
+  validateDesc()
+  if (descError.value) return
   try {
     await feedbackApi.submit({
       orderId: orderId.value,
@@ -83,5 +99,16 @@ defineExpose({ open })
   font-family: $font-sans;
   font-size: 12px;
   resize: vertical;
+
+  &--error {
+    border-color: $color-danger;
+  }
+}
+
+.field-error {
+  display: block;
+  font-size: 10px;
+  color: $color-danger;
+  margin-top: 2px;
 }
 </style>

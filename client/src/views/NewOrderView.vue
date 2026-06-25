@@ -4,14 +4,16 @@
       <div class="card__header">新建订单</div>
       <div class="card__body">
         <div class="frm-grid">
-          <div class="form-field">
-            <label>客户</label>
+          <div class="form-field" :class="{ 'form-field--error': errors.customerName }">
+            <label>客户 *</label>
             <input
               v-model="form.customerName"
               list="custList"
               placeholder="选择或输入"
               autocomplete="off"
+              @blur="validateField('customerName')"
             />
+            <span v-if="errors.customerName" class="field-error">{{ errors.customerName }}</span>
             <datalist id="custList">
               <option v-for="c in customers" :key="c" :value="c" />
             </datalist>
@@ -20,12 +22,19 @@
             <label>款号</label>
             <input v-model="form.productCode" placeholder="可选" />
           </div>
-          <div class="form-field">
-            <label>工艺</label>
-            <select v-model="form.processTemplate" @change="onTemplateChange">
+          <div class="form-field" :class="{ 'form-field--error': errors.processTemplate }">
+            <label>工艺 *</label>
+            <select
+              v-model="form.processTemplate"
+              @change="onTemplateChange"
+              @blur="validateField('processTemplate')"
+            >
               <option value="">选工艺...</option>
               <option v-for="item in templates" :key="item" :value="item">{{ item }}</option>
             </select>
+            <span v-if="errors.processTemplate" class="field-error">{{
+              errors.processTemplate
+            }}</span>
           </div>
           <div class="form-field">
             <label>优先级</label>
@@ -91,7 +100,11 @@
 
         <div style="margin-top: 10px; display: flex; gap: 8px">
           <button v-if="showDimRows" class="btn" @click="addDim">+ 尺寸行</button>
-          <button class="btn btn--primary" :disabled="submitting" @click="submitOrder">
+          <button
+            class="btn btn--primary"
+            :disabled="submitting || !isFormValid"
+            @click="submitOrder"
+          >
             {{ submitting ? '提交中...' : '提 交' }}
           </button>
         </div>
@@ -151,6 +164,26 @@ const form = ref({
 
 const dimensions = ref<DimensionRow[]>([])
 
+const errors = ref<Record<string, string>>({})
+
+function validateField(field: string) {
+  const val = form.value[field as keyof typeof form.value]
+  if (field === 'customerName' && !val) {
+    errors.value.customerName = '请输入客户名'
+  } else if (field === 'customerName') {
+    delete errors.value.customerName
+  }
+  if (field === 'processTemplate' && !val) {
+    errors.value.processTemplate = '请选择工艺'
+  } else if (field === 'processTemplate') {
+    delete errors.value.processTemplate
+  }
+}
+
+const isFormValid = computed(() => {
+  return !!form.value.customerName && !!form.value.processTemplate
+})
+
 const materialOptions = computed(() => inventoryStore.materialOptions)
 
 const tpl = computed(() => form.value.processTemplate)
@@ -174,10 +207,9 @@ function removeDim(i: number) {
 }
 
 async function submitOrder() {
-  if (!form.value.customerName || !form.value.processTemplate) {
-    appStore.showToast('请填客户和工艺', 'warning')
-    return
-  }
+  validateField('customerName')
+  validateField('processTemplate')
+  if (!isFormValid.value) return
   if (
     showSheet.value &&
     (!form.value.sheetWidth ||
@@ -261,5 +293,19 @@ onMounted(() => {
   font-size: 10px;
   color: $color-dim;
   min-width: 24px;
+}
+
+.form-field--error {
+  input,
+  select {
+    border-color: $color-danger;
+  }
+}
+
+.field-error {
+  display: block;
+  font-size: 10px;
+  color: $color-danger;
+  margin-top: 2px;
 }
 </style>

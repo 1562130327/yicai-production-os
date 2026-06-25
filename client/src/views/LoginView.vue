@@ -25,7 +25,11 @@
           />
         </div>
         <div v-if="error" class="error">{{ error }}</div>
-        <button type="submit" class="btn btn--primary login-btn" :disabled="loading">
+        <button
+          type="submit"
+          class="btn btn--primary login-btn"
+          :disabled="loading || !username || !password"
+        >
           {{ loading ? '登录中...' : '登 录' }}
         </button>
       </form>

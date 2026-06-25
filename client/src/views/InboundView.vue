@@ -4,14 +4,26 @@
       <div class="card__header">库存入库</div>
       <div class="card__body">
         <div class="frm-grid">
-          <div class="form-field">
-            <label>供应商</label>
-            <input v-model="form.supplier" list="supList" placeholder="选择或输入" />
+          <div class="form-field" :class="{ 'form-field--error': errors.supplier }">
+            <label>供应商 *</label>
+            <input
+              v-model="form.supplier"
+              list="supList"
+              placeholder="选择或输入"
+              @blur="validateField('supplier')"
+            />
+            <span v-if="errors.supplier" class="field-error">{{ errors.supplier }}</span>
             <datalist id="supList" />
           </div>
-          <div class="form-field">
-            <label>材质</label>
-            <input v-model="form.material" list="matList" placeholder="选择或输入" />
+          <div class="form-field" :class="{ 'form-field--error': errors.material }">
+            <label>材质 *</label>
+            <input
+              v-model="form.material"
+              list="matList"
+              placeholder="选择或输入"
+              @blur="validateField('material')"
+            />
+            <span v-if="errors.material" class="field-error">{{ errors.material }}</span>
             <datalist id="matList" />
           </div>
           <div class="form-field">
@@ -28,9 +40,15 @@
               <input v-model="form.thickness" placeholder="厚(mm)" />
             </div>
           </div>
-          <div class="form-field">
-            <label>数量(床)</label>
-            <input v-model.number="form.quantity" type="number" min="1" />
+          <div class="form-field" :class="{ 'form-field--error': errors.quantity }">
+            <label>数量(床) *</label>
+            <input
+              v-model.number="form.quantity"
+              type="number"
+              min="1"
+              @blur="validateField('quantity')"
+            />
+            <span v-if="errors.quantity" class="field-error">{{ errors.quantity }}</span>
           </div>
           <div class="form-field">
             <label>单价(可选)</label>
@@ -44,7 +62,7 @@
         <button
           class="btn btn--primary"
           style="margin-top: 12px"
-          :disabled="submitting"
+          :disabled="submitting || !isFormValid"
           @click="submitInbound"
         >
           {{ submitting ? '入库中...' : '确认入库' }}
@@ -55,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import PageContainer from '@/components/layout/PageContainer.vue'
 import { materialsApi } from '@/api/materials'
 import { useAppStore } from '@/stores/app'
@@ -75,12 +93,31 @@ const form = ref({
   notes: '',
 })
 
-async function submitInbound() {
+const errors = ref<Record<string, string>>({})
+
+function validateField(field: string) {
   const f = form.value
-  if (!f.supplier || !f.material || !f.width || !f.length || !f.thickness || !f.quantity) {
-    appStore.showToast('请填所有必填项', 'warning')
-    return
+  if (field === 'supplier') {
+    errors.value.supplier = !f.supplier ? '请输入供应商' : ''
+  } else if (field === 'material') {
+    errors.value.material = !f.material ? '请输入材质' : ''
+  } else if (field === 'quantity') {
+    errors.value.quantity = !f.quantity || f.quantity < 1 ? '数量必须大于0' : ''
   }
+  if (!errors.value[field]) delete errors.value[field]
+}
+
+const isFormValid = computed(() => {
+  const f = form.value
+  return !!(f.supplier && f.material && f.quantity >= 1)
+})
+
+async function submitInbound() {
+  validateField('supplier')
+  validateField('material')
+  validateField('quantity')
+  if (!isFormValid.value) return
+  const f = form.value
   submitting.value = true
   try {
     await materialsApi.inbound({
@@ -147,5 +184,19 @@ async function submitInbound() {
 
 .dim {
   color: $color-dim;
+}
+
+.form-field--error {
+  input,
+  select {
+    border-color: $color-danger;
+  }
+}
+
+.field-error {
+  display: block;
+  font-size: 10px;
+  color: $color-danger;
+  margin-top: 2px;
 }
 </style>
