@@ -1,0 +1,177 @@
+@use 'variables' as *;
+
+// ===== 按钮 =====
+.btn {
+  padding: 7px 16px;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 1px;
+  font-family: $font-sans;
+  transition: all $transition-fast;
+  color: $color-text;
+  background: $color-surface;
+
+  &:hover {
+    border-color: $color-accent;
+    color: $color-accent;
+  }
+
+  &--primary {
+    background: $color-accent;
+    color: $color-bg;
+    border-color: $color-accent;
+    font-weight: 600;
+
+    &:hover {
+      background: $color-accent-hover;
+    }
+  }
+
+  &--danger {
+    color: $color-danger;
+
+    &:hover {
+      border-color: $color-danger;
+      background: $color-danger-dim;
+    }
+  }
+
+  &--sm {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ===== 标签 =====
+.badge {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+
+  &--danger {
+    background: $color-danger-dim;
+    color: $color-danger;
+  }
+
+  &--warning {
+    background: $color-warning-dim;
+    color: $color-warning;
+  }
+
+  &--success {
+    background: $color-success-dim;
+    color: $color-success;
+  }
+
+  &--accent {
+    background: $color-accent-dim;
+    color: $color-accent;
+  }
+}
+
+// ===== 表单 =====
+.form-field {
+  label {
+    display: block;
+    font-size: 10px;
+    color: $color-dim;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    font-family: $font-mono;
+  }
+
+  input,
+  select {
+    width: 100%;
+    padding: 7px 10px;
+    background: $color-input;
+    border: 1px solid $color-border;
+    color: $color-text;
+    font-size: 13px;
+    font-family: $font-sans;
+    border-radius: $radius-sm;
+    outline: none;
+
+    &:focus {
+      border-color: $color-accent;
+    }
+  }
+}
+
+// ===== 卡片 =====
+.card {
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  margin-bottom: 12px;
+
+  &__header {
+    padding: 10px 14px;
+    border-bottom: 1px solid $color-border;
+    font-size: 11px;
+    color: $color-dim;
+    letter-spacing: 1px;
+    font-family: $font-mono;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  &__body {
+    padding: 12px;
+  }
+}
+
+// ===== 统计卡片 =====
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+// ===== 表格 =====
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 10px;
+  color: $color-dim;
+  letter-spacing: 1px;
+  font-family: $font-mono;
+  text-transform: uppercase;
+  border-bottom: 1px solid $color-border;
+}
+
+td {
+  padding: 8px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid $color-border;
+}
+
+tr:hover {
+  background: $color-accent-dim;
+}

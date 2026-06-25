@@ -1,0 +1,25 @@
+@use 'variables' as *;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: $font-sans;
+  background: $color-bg;
+  color: $color-text;
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+a {
+  color: $color-accent;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+}

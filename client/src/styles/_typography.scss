@@ -1,0 +1,35 @@
+@use 'variables' as *;
+
+.mono {
+  font-family: $font-mono;
+}
+
+.text-accent {
+  color: $color-accent;
+}
+
+.text-dim {
+  color: $color-dim;
+}
+
+.text-danger {
+  color: $color-danger;
+}
+
+.text-warning {
+  color: $color-warning;
+}
+
+.text-success {
+  color: $color-success;
+}
+
+.text-sm {
+  font-size: 11px;
+}
+
+.text-xs {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}

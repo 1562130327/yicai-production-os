@@ -16,11 +16,10 @@ export async function createServer(): Promise<Express> {
   app.use(express.json());
   app.use(requestLogger);
 
-  // 前端静态文件（无需认证，开发模式禁用缓存）
-  const publicDir = path.resolve(__dirname, '../../../public');
-  app.use(express.static(publicDir, { etag: false, cacheControl: false }));
+  // 前端静态文件（Vue 3 构建产物）
+  const clientDir = path.resolve(__dirname, '../../../client/dist');
+  app.use(express.static(clientDir, { etag: false, cacheControl: false }));
   app.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-  app.get('/', (_req, res) => res.redirect('/login.html'));
 
   // 认证路由（不受权限控制）
   app.post('/api/auth/login', (req: Request, res: Response) => {
@@ -65,6 +64,11 @@ export async function createServer(): Promise<Express> {
 
   // 错误处理
   app.use(errorHandler);
+
+  // SPA fallback：所有非 API 路由返回 index.html（必须放在最后）
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDir, 'index.html'));
+  });
 
   return app;
 }

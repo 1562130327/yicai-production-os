@@ -1,0 +1,48 @@
+// ===== 颜色 =====
+$color-bg: #080d12;
+$color-surface: #0f1620;
+$color-surface-2: #141e2a;
+$color-input: #0a1018;
+$color-border: #1a2a3a;
+$color-border-lite: #243447;
+
+$color-text: #c8d6e5;
+$color-dim: #4a6680;
+
+$color-accent: #4fc3f7;
+$color-accent-hover: #81d4fa;
+$color-accent-dim: rgba(79, 195, 247, 0.08);
+
+$color-danger: #ef5350;
+$color-danger-dim: rgba(239, 83, 80, 0.1);
+
+$color-warning: #ff8f00;
+$color-warning-dim: rgba(255, 143, 0, 0.1);
+
+$color-success: #4caf50;
+$color-success-dim: rgba(76, 175, 80, 0.1);
+
+// ===== 字体 =====
+$font-sans: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+$font-mono: 'Consolas', 'Courier New', monospace;
+
+// ===== 间距 =====
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+
+// ===== 圆角 =====
+$radius-sm: 2px;
+$radius-md: 4px;
+$radius-lg: 8px;
+
+// ===== 过渡 =====
+$transition-fast: 0.15s ease;
+$transition-normal: 0.2s ease;
+
+// ===== 层级 =====
+$z-topbar: 100;
+$z-modal: 200;
+$z-toast: 300;
